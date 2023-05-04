@@ -19,4 +19,14 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ap-northeast-1
+          role-to-assume: ${{ secrets.AWS_EC2_ROLE_ARN }}
+          #role-session-name: github-actions-deploy-${{ github.event.repository.name }}-${{ github.run_number }}
+          #role-duration-seconds: 1800
+          #role-skip-session-tagging: true
+  
       - run: aws s3 sync . s3://udemy-git-actions-ne-s3 --exact-timestamps --region ap-northeast-1
