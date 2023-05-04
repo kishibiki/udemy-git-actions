@@ -43,12 +43,41 @@ jobs:
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/download-artifact@v3
         with:
           name: dist
           path: backend/dist
-        
+      
+      - name: Install AWS CLI
+        run: |
+          # Install AWS CLI
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          aws --version
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ap-northeast-1
+          role-to-assume: ${{ secrets.AWS_EC2_ROLE_ARN }}
+          role-session-name: github-actions-deploy-${{ github.event.repository.name }}-${{ github.run_number }}
+          #role-duration-seconds: 1800
+          #role-skip-session-tagging: true
+
+      - name: Add IP Address
+        env:
+          SECURITY_GROUP_ID: ${{ secrets.AWS_EC2_SECURITY_GROUP_ID }}   
+        run: |
+          # Public IP (Github Actions)
+          IP_ADDRESS=`curl ifconfig.io`
+          # Add IP Address to Security Group Ingress
+          aws ec2 authorize-security-group-ingress --group-id ${{ SECURITY_GROUP_ID }} --protocol tcp --port 22 --cidr ${{ IP_ADDRESS }}/32
+
       - uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.BACKEND_SERVER_SSH_KEY }}
@@ -58,3 +87,20 @@ jobs:
         env:
           SERVER_USER: ${{ secrets.BACKEND_SERVER_USER }}
           SERVER_IP: ${{ secrets.BACKEND_SERVER_IP }}
+
+      - run: ssh ${SERVER_USER}@${SERVER_IP} docker-compose restart node
+        env:
+          SERVER_USER: ${{ secrets.BACKEND_SERVER_USER }}
+          SERVER_IP: ${{ secrets.BACKEND_SERVER_IP }}
+
+      - run: ssh ${SERVER_USER}@${SERVER_IP} docker-compose ps
+        env:
+          SERVER_USER: ${{ secrets.BACKEND_SERVER_USER }}
+          SERVER_IP: ${{ secrets.BACKEND_SERVER_IP }}
+          
+      - name: Revoke security group
+        env:
+          SECURITY_GROUP_ID: ${{ secrets.AWS_EC2_SECURITY_GROUP_ID }}   
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id ${{ SECURITY_GROUP_ID }} --protocol tcp --port 22 --cidr ${{ IP_ADDRESS }}/32
