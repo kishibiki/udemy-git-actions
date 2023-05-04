@@ -76,7 +76,7 @@ jobs:
           # Public IP (Github Actions)
           IP_ADDRESS=`curl ifconfig.io`
           # Add IP Address to Security Group Ingress
-          aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 22 --cidr ${{ IP_ADDRESS }}/32
+          aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 22 --cidr ${IP_ADDRESS}/32
 
       - uses: shimataro/ssh-key-action@v2
         with:
@@ -104,4 +104,4 @@ jobs:
         if: always()
         run: |
           IP_ADDRESS=`curl ifconfig.io`
-          aws ec2 revoke-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 22 --cidr ${{ IP_ADDRESS }}/32
+          aws ec2 revoke-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 22 --cidr ${IP_ADDRESS}/32
